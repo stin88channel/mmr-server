@@ -357,6 +357,12 @@ UserSchema.methods.recordFailedLogin = async function (deviceInfo) {
   await this.save();
 };
 
+try {
+  UserSchema.index({ login: 1 });
+} catch (error) {
+  console.warn("Индекс на поле 'login' уже существует, игнорируем ошибку:", error.message);
+}
+
 // Индексы для оптимизации запросов 
 UserSchema.index({ login: 1 });
 UserSchema.index({ email: 1 });
