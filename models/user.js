@@ -357,8 +357,8 @@ UserSchema.methods.recordFailedLogin = async function (deviceInfo) {
   await this.save();
 };
 
-// Индексы для оптимизации запросов
-UserSchema.ensureIndex({ login: 1 });
+// Индексы для оптимизации запросов 
+UserSchema.index({ login: 1 });
 UserSchema.index({ email: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ "cryptoAddresses.currency": 1 });
