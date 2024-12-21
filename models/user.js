@@ -363,8 +363,6 @@ try {
   console.warn("Индекс на поле 'login' уже существует, игнорируем ошибку:", error.message);
 }
 
-// Индексы для оптимизации запросов 
-UserSchema.index({ login: 1 });
 UserSchema.index({ email: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ "cryptoAddresses.currency": 1 });
