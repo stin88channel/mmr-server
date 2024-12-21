@@ -8,6 +8,7 @@ const test = (req, res) => {
 // Register EndPoint
 const registerUser = async (req, res) => {
   try {
+    
     const { login, email, password } = req.body;
 
     // Проверка входных данных
