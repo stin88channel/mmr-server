@@ -363,7 +363,12 @@ try {
   console.warn("Индекс на поле 'login' уже существует, игнорируем ошибку:", error.message);
 }
 
-UserSchema.index({ email: 1 });
+try {
+  UserSchema.index({ email: 1 });
+} catch (error) {
+  console.warn("Индекс на поле 'login' уже существует, игнорируем ошибку:", error.message);
+}
+
 UserSchema.index({ role: 1 });
 UserSchema.index({ "cryptoAddresses.currency": 1 });
 UserSchema.index({ "cryptoAddresses.address": 1 });
