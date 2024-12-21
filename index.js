@@ -15,7 +15,7 @@ const QRCode = require("qrcode");
 const checkAllowedAdmin = require("./middleware/authAdmin");
 
 // MODELS 
-const user= require("./models/User");
+const user= require("./models/user");
 const Notification = require("./models/notification");
 const PaymentOption = require("./models/paymentOption");
 const SuccessfulDeposit = require("./models/successfulDeposit");
