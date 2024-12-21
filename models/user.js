@@ -357,22 +357,22 @@ UserSchema.methods.recordFailedLogin = async function (deviceInfo) {
   await this.save();
 };
 
-try {
-  UserSchema.index({ login: 1 });
-} catch (error) {
-  console.warn("Индекс на поле 'login' уже существует, игнорируем ошибку:", error.message);
-}
+// Создание индексов для схемы User
+const createIndex = async (schema, index) => {
+  try {
+    await schema.index(index);
+  } catch (error) {
+    console.warn(`Ошибка при создании индекса ${JSON.stringify(index)}:`, error.message);
+  }
+};
 
-try {
-  UserSchema.index({ email: 1 });
-} catch (error) {
-  console.warn("Индекс на поле 'login' уже существует, игнорируем ошибку:", error.message);
-}
-
-UserSchema.index({ role: 1 });
-UserSchema.index({ "cryptoAddresses.currency": 1 });
-UserSchema.index({ "cryptoAddresses.address": 1 });
-UserSchema.index({ "lastLoginDevice.lastLoginAt": 1 });
-UserSchema.index({ isBlocked: 1 });
+// Создаем индексы
+createIndex(UserSchema, { login: 1 });
+createIndex(UserSchema, { email: 1 });
+createIndex(UserSchema, { role: 1 });
+createIndex(UserSchema, { "cryptoAddresses.currency": 1 });
+createIndex(UserSchema, { "cryptoAddresses.address": 1 });
+createIndex(UserSchema, { "lastLoginDevice.lastLoginAt": 1 });
+createIndex(UserSchema, { isBlocked: 1 });
 
 module.exports = mongoose.models.User || mongoose.model("User", UserSchema);
