@@ -1,6 +1,6 @@
 const checkAllowedAdmin = async (req, res, next) => {
     try {
-        if (!req.user || req.user.role !== 'admin') {
+        if (!req.user|| req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора.' });
         }
         next();

@@ -14,8 +14,8 @@ const QRCode = require("qrcode");
 
 const checkAllowedAdmin = require("./middleware/authAdmin");
 
-// MODELS
-const User = require("./models/User");
+// MODELS 
+const user= require("./models/User");
 const Notification = require("./models/notification");
 const PaymentOption = require("./models/paymentOption");
 const SuccessfulDeposit = require("./models/successfulDeposit");
@@ -66,7 +66,7 @@ const verifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Находим пользователя по ID из декодированного токена
-    const user = await User.findById(decoded.id).select("-password"); // Исключаем пароль из результата
+    const user= await User.findById(decoded.id).select("-password"); // Исключаем пароль из результата
 
     // Проверка существования пользователя
     if (!user) {
@@ -81,7 +81,7 @@ const verifyToken = async (req, res, next) => {
     }
 
     // Устанавливаем пользователя в объект запроса
-    req.user = {
+    req.user= {
       _id: user._id,
       login: user.login,
       role: user.role,
@@ -293,7 +293,7 @@ app.post("/account/signin", async (req, res) => {
     }
 
     // Поиск пользователя по логину
-    const user = await User.findOne({ login });
+    const user= await User.findOne({ login });
     if (!user) {
       return res.status(400).json({ error: "Неверный логин или пароль" });
     }
@@ -407,7 +407,7 @@ app.post("/account/logout", async (req, res) => {
 // Получение данных пользователя
 app.get("/user/settings", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password");
+    const user= await User.findById(req.user._id).select("-password");
     res.json(user);
   } catch (error) {
     console.error("Ошибка при получении данных пользователя:", error);
@@ -420,7 +420,7 @@ app.get("/user/settings", verifyToken, async (req, res) => {
 // Изменение статуса кошелька
 app.post("/user/toggle-wallet", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     console.log("Current wallet status:", user.walletStatus);
     const newWalletStatus = user.walletStatus === 1 ? 0 : 1;
     user.walletStatus = newWalletStatus;
@@ -484,7 +484,7 @@ const checkAvailableLimit = async (
   requestedLimit,
   excludeOptionId = null
 ) => {
-  const user = await User.findById(userId);
+  const user= await User.findById(userId);
   const usdtInRub = user.usdtBalance * 90; // Конвертация USDT в рубли
 
   // Получаем все активные реквизиты пользователя
@@ -538,7 +538,7 @@ app.post("/api/payment-options", verifyToken, async (req, res) => {
     }
 
     // Проверка доступного лимита
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     const usdtInRub = user.usdtBalance * 90; // Конвертация USDT в рубли
     const existingOptions = await PaymentOption.find({
       userId: req.user._id,
@@ -850,7 +850,7 @@ app.put("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
     }
 
     // Находим пользователя и проверяем статус кошелька
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({
         error: "Пользователь не найден",
@@ -947,7 +947,7 @@ app.post("/api/create-payment-option", verifyToken, async (req, res) => {
     }
 
     // Проверка наличия пользователя
-    if (!req.user || !req.user._id) {
+    if (!req.user|| !req.user._id) {
       return res.status(401).json({ error: "Пользователь не авторизован" });
     }
 
@@ -1167,7 +1167,7 @@ app.post("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
 app.post("/api/crypto/get-usdt-address", verifyToken, async (req, res) => {
   try {
     // Сначала ищем существующий адрес пользователя
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     let usdtAddress = user.getUsdtAddress(); // Используем метод из модели User
 
     if (!usdtAddress) {
@@ -1196,7 +1196,7 @@ app.post("/api/crypto/get-usdt-address", verifyToken, async (req, res) => {
 app.post("/api/update-balance", verifyToken, async (req, res) => {
   try {
     const { usdtBalance, rubBalance } = req.body;
-    const user = await User.findByIdAndUpdate(
+    const user= await User.findByIdAndUpdate(
       req.user._id,
       { usdtBalance, rubBalance },
       { new: true }
@@ -1211,7 +1211,7 @@ app.post("/api/update-balance", verifyToken, async (req, res) => {
 // Получение баланса пользователя
 app.get("/api/get-balance", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     res.json({
       usdtBalance: parseFloat(user.usdtBalance || 0),
       rubBalance: parseFloat(user.rubBalance || 0),
@@ -1224,7 +1224,7 @@ app.get("/api/get-balance", verifyToken, async (req, res) => {
 
 app.get("/api/user/usdt-address", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1444,7 +1444,7 @@ app.put("/api/user/change-password", verifyToken, async (req, res) => {
 
   try {
     // Находим пользователя по ID из токена
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1533,7 +1533,7 @@ app.post("/api/verify-2fa", verifyToken, async (req, res) => {
         .json({ error: "Код не должен состоять из одинаковых цифр" });
     }
 
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1584,7 +1584,7 @@ app.post("/api/enable-2fa", verifyToken, async (req, res) => {
   const { token, secret } = req.body; // Получаем токен и секрет из запроса
 
   try {
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1632,7 +1632,7 @@ app.post("/api/disable-2fa", verifyToken, async (req, res) => {
     }
 
     // Получаем пользователя
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1669,7 +1669,7 @@ app.post("/api/disable-2fa", verifyToken, async (req, res) => {
 
 app.get("/api/user/twofa-status", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user= await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1684,7 +1684,7 @@ app.get("/api/user/twofa-status", verifyToken, async (req, res) => {
 // Пример эндпоинта для получения данных пользователя
 app.get("/api/user/settings", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password"); // Не возвращаем пароль
+    const user= await User.findById(req.user._id).select("-password"); // Не возвращаем пароль
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1715,7 +1715,7 @@ app.post("/account/verify-2fa", verifyToken, async (req, res) => {
     console.log("Проверка кода 2FA для пользователя:", userId);
     console.log("Отправленный токен:", token);
 
-    const user = await User.findById(userId);
+    const user= await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }

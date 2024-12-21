@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const user= require("../models/User");
 
 exports.requireAuth = async (req, res, next) => {
   try {
@@ -14,7 +14,7 @@ exports.requireAuth = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Находим пользователя
-    const user = await User.findById(decoded.id);
+    const user= await User.findById(decoded.id);
     if (!user) {
       return res.status(401).json({ error: "Пользователь не найден" });
     }
@@ -25,7 +25,7 @@ exports.requireAuth = async (req, res, next) => {
     }
 
     // Добавляем пользователя в объект запроса
-    req.user = user;
+    req.user= user;
     next();
   } catch (error) {
     console.error("Ошибка аутентификации:", error);
