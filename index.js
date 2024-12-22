@@ -41,8 +41,8 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use("/api", notificationRoutes);
-app.use("/api", paymentRoutes);
+app.use("/api/v1", notificationRoutes);
+app.use("/api/v1", paymentRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
