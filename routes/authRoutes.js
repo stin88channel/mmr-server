@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const cors = require("cors");
+const User = require("../models/User");
 const UsdtService = require("../UsdtService");
 const {
   test,
@@ -17,7 +18,7 @@ const usdtService = new UsdtService(process.env.USDT_PRIVATE_KEY);
 router.use(
   cors({
     credentials: true,
-    origin: "https://mmr-client.vercel.app/",
+    origin: "http://localhost:5173",
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -43,7 +44,7 @@ const verifyTokenAndDevice = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user= await User.findById(decoded.id);
+    const user = await User.findById(decoded.id);
 
     if (!user) {
       res.clearCookie("token");
@@ -79,7 +80,7 @@ const verifyTokenAndDevice = async (req, res, next) => {
     // Обновляем информацию о последнем входе
     await user.updateLoginDevice(currentDevice);
 
-    req.user= {
+    req.user = {
       _id: user._id,
       login: user.login,
       role: user.role,
@@ -163,12 +164,12 @@ const registerUser = async (req, res) => {
 };
 
 // Эндпоинт для изменения пароля
-router.put("/api/user/change-password", verifyToken, async (req, res) => {
+router.put("/api/v1/user/change-password", verifyToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   try {
     // Находим пользователя по ID из токена
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }

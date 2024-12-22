@@ -14,8 +14,8 @@ const QRCode = require("qrcode");
 
 const checkAllowedAdmin = require("./middleware/authAdmin");
 
-// MODELS 
-const user = require("./models/user");
+// MODELS
+const User = require("./models/User");
 const Notification = require("./models/notification");
 const PaymentOption = require("./models/paymentOption");
 const SuccessfulDeposit = require("./models/successfulDeposit");
@@ -35,7 +35,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: "https://mmr-client.vercel.app/",
+    origin: "https://mmr-client.vercel.app",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -66,7 +66,7 @@ const verifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Находим пользователя по ID из декодированного токена
-    const user= await User.findById(decoded.id).select("-password"); // Исключаем пароль из результата
+    const user = await User.findById(decoded.id).select("-password"); // Исключаем пароль из результата
 
     // Проверка существования пользователя
     if (!user) {
@@ -81,7 +81,7 @@ const verifyToken = async (req, res, next) => {
     }
 
     // Устанавливаем пользователя в объект запроса
-    req.user= {
+    req.user = {
       _id: user._id,
       login: user.login,
       role: user.role,
@@ -97,7 +97,7 @@ const verifyToken = async (req, res, next) => {
 };
 
 // Проверка
-app.get("/api/check-admin", verifyToken, async (req, res) => {
+app.get("/api/v1/check-admin", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ isAdmin: false });
@@ -111,7 +111,7 @@ app.get("/api/check-admin", verifyToken, async (req, res) => {
 
 // Отправка уведомления (только для админов)
 app.post(
-  "/api/notifications",
+  "/api/v1/notifications",
   verifyToken,
   checkAllowedAdmin,
   async (req, res) => {
@@ -152,7 +152,7 @@ app.post(
 );
 
 // Получение всех уведомлений
-app.get("/api/notifications", verifyToken, async (req, res) => {
+app.get("/api/v1/notifications", verifyToken, async (req, res) => {
   try {
     const notifications = await Notification.find()
       .sort({ createdAt: -1 })
@@ -164,7 +164,7 @@ app.get("/api/notifications", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/notifications/reset-counter", verifyToken, async (req, res) => {
+app.post("/api/v1/notifications/reset-counter", verifyToken, async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user._id, { unreadNotifications: 0 });
     res.json({ message: "Счетчик уведомлений сброшен" });
@@ -293,7 +293,7 @@ app.post("/account/signin", async (req, res) => {
     }
 
     // Поиск пользователя по логину
-    const user= await User.findOne({ login });
+    const user = await User.findOne({ login });
     if (!user) {
       return res.status(400).json({ error: "Неверный логин или пароль" });
     }
@@ -407,7 +407,7 @@ app.post("/account/logout", async (req, res) => {
 // Получение данных пользователя
 app.get("/user/settings", verifyToken, async (req, res) => {
   try {
-    const user= await User.findById(req.user._id).select("-password");
+    const user = await User.findById(req.user._id).select("-password");
     res.json(user);
   } catch (error) {
     console.error("Ошибка при получении данных пользователя:", error);
@@ -420,7 +420,7 @@ app.get("/user/settings", verifyToken, async (req, res) => {
 // Изменение статуса кошелька
 app.post("/user/toggle-wallet", verifyToken, async (req, res) => {
   try {
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     console.log("Current wallet status:", user.walletStatus);
     const newWalletStatus = user.walletStatus === 1 ? 0 : 1;
     user.walletStatus = newWalletStatus;
@@ -453,7 +453,7 @@ app.post("/user/toggle-wallet", verifyToken, async (req, res) => {
 });
 
 // Получение всех платежных опций
-app.get("/api/payment-options", verifyToken, async (req, res) => {
+app.get("/api/v1/payment-options", verifyToken, async (req, res) => {
   try {
     console.log("Запрос на получение всех активных платежных опций");
 
@@ -484,7 +484,7 @@ const checkAvailableLimit = async (
   requestedLimit,
   excludeOptionId = null
 ) => {
-  const user= await User.findById(userId);
+  const user = await User.findById(userId);
   const usdtInRub = user.usdtBalance * 90; // Конвертация USDT в рубли
 
   // Получаем все активные реквизиты пользователя
@@ -510,7 +510,7 @@ const checkAvailableLimit = async (
   };
 };
 
-app.post("/api/payment-options", verifyToken, async (req, res) => {
+app.post("/api/v1/payment-options", verifyToken, async (req, res) => {
   try {
     const {
       name,
@@ -538,7 +538,7 @@ app.post("/api/payment-options", verifyToken, async (req, res) => {
     }
 
     // Проверка доступного лимита
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     const usdtInRub = user.usdtBalance * 90; // Конвертация USDT в рубли
     const existingOptions = await PaymentOption.find({
       userId: req.user._id,
@@ -587,7 +587,7 @@ app.post("/api/payment-options", verifyToken, async (req, res) => {
   }
 });
 
-app.put("/api/successful-deposits/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/successful-deposits/:id", verifyToken, async (req, res) => {
   try {
     const deposit = await SuccessfulDeposit.findById(req.params.id);
     if (!deposit) {
@@ -651,7 +651,7 @@ async function generateUniqueCustomUrl(customUrl) {
 }
 
 // Обновление платежной опции
-app.put("/api/payment-options/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
   try {
     const { limit, name, bank, timeout, maxRequests, botRequisites, comment } =
       req.body;
@@ -707,7 +707,7 @@ app.put("/api/payment-options/:id", verifyToken, async (req, res) => {
 });
 
 // Удаление платежной опции
-app.delete("/api/payment-options/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
   try {
     const result = await PaymentOption.findOneAndDelete({
       _id: req.params.id,
@@ -727,7 +727,7 @@ app.delete("/api/payment-options/:id", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/payment-options/:customUrl", async (req, res) => {
+app.get("/api/v1/payment-options/:customUrl", async (req, res) => {
   try {
     const { customUrl } = req.params; // Извлекаем customUrl из параметров
     console.log("Запрос платежной опции:", customUrl);
@@ -766,7 +766,7 @@ app.get("/api/payment-options/:customUrl", async (req, res) => {
 });
 
 // Изменение платежной опции
-app.put("/api/payment-options/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
   try {
     const { name, bank, limit, timeout, maxRequests, botRequisites, comment } =
       req.body;
@@ -840,7 +840,7 @@ app.put("/api/payment-options/:id", verifyToken, async (req, res) => {
 });
 
 // Переключение статуса платежной опции
-app.put("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
+app.put("/api/v1/payment-options/:id/toggle", verifyToken, async (req, res) => {
   try {
     // Проверяем валидность ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -850,7 +850,7 @@ app.put("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
     }
 
     // Находим пользователя и проверяем статус кошелька
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({
         error: "Пользователь не найден",
@@ -928,7 +928,7 @@ app.put("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/create-payment-option", verifyToken, async (req, res) => {
+app.post("/api/v1/create-payment-option", verifyToken, async (req, res) => {
   try {
     const { amount, customUrl } = req.body; // Извлекаем amount и customUrl из тела запроса
 
@@ -947,7 +947,7 @@ app.post("/api/create-payment-option", verifyToken, async (req, res) => {
     }
 
     // Проверка наличия пользователя
-    if (!req.user|| !req.user._id) {
+    if (!req.user || !req.user._id) {
       return res.status(401).json({ error: "Пользователь не авторизован" });
     }
 
@@ -1021,7 +1021,7 @@ app.post("/api/create-payment-option", verifyToken, async (req, res) => {
 });
 
 // Обработчик подтверждения платежа
-app.post("/api/confirm-payment/:id", verifyToken, async (req, res) => {
+app.post("/api/v1/confirm-payment/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { amount } = req.body;
@@ -1107,7 +1107,7 @@ const checkAndUpdatePaymentOptionLimits = async () => {
 setInterval(checkAndUpdatePaymentOptionLimits, 5 * 60 * 1000);
 
 // Эндпоинт для получения успешных депозитов
-app.get("/api/successful-deposits", verifyToken, async (req, res) => {
+app.get("/api/v1/successful-deposits", verifyToken, async (req, res) => {
   try {
     const deposits = await SuccessfulDeposit.find({ userId: req.user._id })
       .sort({ timestamp: -1 })
@@ -1137,7 +1137,7 @@ async function getRandomPaymentOption(amount) {
   return availableOptions[Math.floor(Math.random() * availableOptions.length)];
 }
 
-app.post("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
+app.post("/api/v1/payment-options/:id/toggle", verifyToken, async (req, res) => {
   try {
     const option = await PaymentOption.findOne({
       _id: req.params.id,
@@ -1164,10 +1164,10 @@ app.post("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
 });
 
 // Получение USDT адреса
-app.post("/api/crypto/get-usdt-address", verifyToken, async (req, res) => {
+app.post("/api/v1/crypto/get-usdt-address", verifyToken, async (req, res) => {
   try {
     // Сначала ищем существующий адрес пользователя
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     let usdtAddress = user.getUsdtAddress(); // Используем метод из модели User
 
     if (!usdtAddress) {
@@ -1193,10 +1193,10 @@ app.post("/api/crypto/get-usdt-address", verifyToken, async (req, res) => {
 });
 
 // Обновление баланса пользователя
-app.post("/api/update-balance", verifyToken, async (req, res) => {
+app.post("/api/v1/update-balance", verifyToken, async (req, res) => {
   try {
     const { usdtBalance, rubBalance } = req.body;
-    const user= await User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       req.user._id,
       { usdtBalance, rubBalance },
       { new: true }
@@ -1209,9 +1209,9 @@ app.post("/api/update-balance", verifyToken, async (req, res) => {
 });
 
 // Получение баланса пользователя
-app.get("/api/get-balance", verifyToken, async (req, res) => {
+app.get("/api/v1/get-balance", verifyToken, async (req, res) => {
   try {
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     res.json({
       usdtBalance: parseFloat(user.usdtBalance || 0),
       rubBalance: parseFloat(user.rubBalance || 0),
@@ -1222,9 +1222,9 @@ app.get("/api/get-balance", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/user/usdt-address", verifyToken, async (req, res) => {
+app.get("/api/v1/user/usdt-address", verifyToken, async (req, res) => {
   try {
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1255,7 +1255,7 @@ app.get("/api/user/usdt-address", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/payment-options/random", async (req, res) => {
+app.get("/api/v1/payment-options/random", async (req, res) => {
   console.log("Received request for random payment option");
   console.log("Query parameters:", req.query);
 
@@ -1319,13 +1319,13 @@ app.get("/api/payment-options/random", async (req, res) => {
   }
 });
 
-app.get("/api/applications", verifyToken, async (req, res) => {
+app.get("/api/v1/applications", verifyToken, async (req, res) => {
   console.log("Запрос на получение заявок:", req.query);
   try {
-    const { type, paymentOptionId } = req.query; // Добавляем paymentOptionId
+    const { type } = req.query;
 
     // Базовые фильтры для запроса
-    let query = {}; // Начинаем с пустого запроса
+    let query = { userId: req.user._id }; // Фильтруем по userId
 
     // Фильтрация в зависимости от типа
     switch (type) {
@@ -1350,14 +1350,9 @@ app.get("/api/applications", verifyToken, async (req, res) => {
         });
     }
 
-    // Если передан paymentOptionId, добавляем его в запрос
-    if (paymentOptionId) {
-      query.paymentOptionId = paymentOptionId; // Фильтруем по paymentOptionId
-    }
-
     // Получаем заявки с пагинацией и сортировкой
     const applications = await SuccessfulDeposit.find(query) // Используем правильную модель
-      .sort({ createdAt: -1 }); // Сортировка по дате создания (новые первые)
+      .sort({ createdAt: -1 }) // Сортировка по дате создания (новые первые)
 
     console.log("Найденные заявки:", applications); // Логируем найденные заявки
 
@@ -1402,7 +1397,7 @@ function calculateCourse(amount) {
 }
 
 // Дополнительный эндпоинт для получения количества заявок по статусам
-app.get("/api/applications/count", verifyToken, async (req, res) => {
+app.get("/api/v1/applications/count", verifyToken, async (req, res) => {
   try {
     const counts = await PaymentOption.aggregate([
       {
@@ -1439,12 +1434,12 @@ function verify2FAToken(secret, token) {
 }
 
 // Эндпоинт для изменения пароля
-app.put("/api/user/change-password", verifyToken, async (req, res) => {
+app.put("/api/v1/user/change-password", verifyToken, async (req, res) => {
   const { currentPassword, newPassword, token } = req.body;
 
   try {
     // Находим пользователя по ID из токена
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1501,7 +1496,7 @@ app.put("/api/user/change-password", verifyToken, async (req, res) => {
 });
 
 // Эндпоинт для генерации секрета 2FA
-app.get("/api/generate-2fa", verifyToken, async (req, res) => {
+app.get("/api/v1/generate-2fa", verifyToken, async (req, res) => {
   const twoFASecret = speakeasy.generateSecret({ length: 20 });
 
   // Генерация QR-кода
@@ -1511,7 +1506,7 @@ app.get("/api/generate-2fa", verifyToken, async (req, res) => {
   res.json({ qrCodeUrl, secret: twoFASecret.base32 }); // Возвращаем секрет и QR-код
 });
 
-app.post("/api/verify-2fa", verifyToken, async (req, res) => {
+app.post("/api/v1/verify-2fa", verifyToken, async (req, res) => {
   const { token } = req.body; // Получаем токен из запроса
 
   try {
@@ -1533,7 +1528,7 @@ app.post("/api/verify-2fa", verifyToken, async (req, res) => {
         .json({ error: "Код не должен состоять из одинаковых цифр" });
     }
 
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1580,11 +1575,11 @@ app.post("/api/verify-2fa", verifyToken, async (req, res) => {
 });
 
 // Эндпоинт для активации 2FA
-app.post("/api/enable-2fa", verifyToken, async (req, res) => {
+app.post("/api/v1/enable-2fa", verifyToken, async (req, res) => {
   const { token, secret } = req.body; // Получаем токен и секрет из запроса
 
   try {
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1617,7 +1612,7 @@ app.post("/api/enable-2fa", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/disable-2fa", verifyToken, async (req, res) => {
+app.post("/api/v1/disable-2fa", verifyToken, async (req, res) => {
   const { token } = req.body; // Получаем токен из запроса
 
   try {
@@ -1632,7 +1627,7 @@ app.post("/api/disable-2fa", verifyToken, async (req, res) => {
     }
 
     // Получаем пользователя
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1667,9 +1662,9 @@ app.post("/api/disable-2fa", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/user/twofa-status", verifyToken, async (req, res) => {
+app.get("/api/v1/user/twofa-status", verifyToken, async (req, res) => {
   try {
-    const user= await User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1682,9 +1677,9 @@ app.get("/api/user/twofa-status", verifyToken, async (req, res) => {
 });
 
 // Пример эндпоинта для получения данных пользователя
-app.get("/api/user/settings", verifyToken, async (req, res) => {
+app.get("/api/v1/user/settings", verifyToken, async (req, res) => {
   try {
-    const user= await User.findById(req.user._id).select("-password"); // Не возвращаем пароль
+    const user = await User.findById(req.user._id).select("-password"); // Не возвращаем пароль
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }
@@ -1715,7 +1710,7 @@ app.post("/account/verify-2fa", verifyToken, async (req, res) => {
     console.log("Проверка кода 2FA для пользователя:", userId);
     console.log("Отправленный токен:", token);
 
-    const user= await User.findById(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
     }

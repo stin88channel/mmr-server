@@ -3,7 +3,7 @@ const router = express.Router();
 const PaymentOption = require('../models/paymentOption'); // Импортируйте модель платежной опции
 
 // Обработчик для создания платежной опции
-router.post('/api/create-payment-option', async (req, res) => {
+router.post('/api/v1/create-payment-option', async (req, res) => {
     const { amount, customUrl } = req.body;
 
     // Проверка наличия обязательных полей и их корректности

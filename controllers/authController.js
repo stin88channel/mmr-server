@@ -1,3 +1,4 @@
+const User = require("../models/User");
 const { comparePassword } = require("../helpers/auth");
 const jwt = require("jsonwebtoken");
 
@@ -8,7 +9,6 @@ const test = (req, res) => {
 // Register EndPoint
 const registerUser = async (req, res) => {
   try {
-    
     const { login, email, password } = req.body;
 
     // Проверка входных данных
@@ -36,7 +36,7 @@ const registerUser = async (req, res) => {
     }
 
     // Создание нового пользователя
-    const user= await User.create({
+    const user = await User.create({
       login,
       email,
       password,
@@ -84,12 +84,12 @@ const loginUser = async (req, res) => {
     }
 
     // Поиск пользователя
-    const user= await User.findOne({ login: login.trim() });
+    const user = await User.findOne({ login: login.trim() });
 
     console.log("Результат поиска пользователя:", {
       found: !!user,
-      userId: user? user._id : null,
-      userLogin: user? user.login : null,
+      userId: user ? user._id : null,
+      userLogin: user ? user.login : null,
     });
 
     if (!user) {
@@ -188,7 +188,7 @@ const logoutUser = async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user= await User.findById(decoded.id);
+    const user = await User.findById(decoded.id);
 
     if (user) {
       user.auth = false;
