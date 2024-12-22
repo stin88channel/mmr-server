@@ -179,7 +179,7 @@ paymentOptionSchema.statics.checkTotalLimits = async function(userId) {
 paymentOptionSchema.index({ userId: 1, isActive: 1 });
 paymentOptionSchema.index({ createdAt: 1 });
 paymentOptionSchema.index({ status: 1 });
-paymentOptionSchema.index({ uniqueLink: 1 }, { unique: true }); // Индекс для уникального поля uniqueLink
+paymentOptionSchema.index({ uniqueLink: 1, unique: true }); // Индекс для уникального поля uniqueLink
 
 const PaymentOption = mongoose.model("PaymentOption", paymentOptionSchema);
 
