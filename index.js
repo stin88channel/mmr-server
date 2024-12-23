@@ -34,8 +34,8 @@ const app = express();
 
 // Загрузка сертификата и ключа
 const options = {
-  key: fs.readFileSync('./SSL/private.key'), // Путь к вашему приватному ключу
-  cert: fs.readFileSync('./SSL/certificate.crt'), // Путь к вашему сертификату
+  key: fs.readFileSync('./SSL/private.key'),
+  cert: fs.readFileSync('./SSL/certificate.crt'),
 };
 
 // Создание HTTPS сервера
