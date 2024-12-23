@@ -1,3 +1,6 @@
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
 const express = require("express");
 const dotenv = require("dotenv").config();
 const cors = require("cors");
@@ -28,6 +31,25 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const { v4: uuidv4 } = require("uuid");
 
 const app = express();
+
+// Загрузка сертификата и ключа
+const options = {
+  key: fs.readFileSync('./SSL/private.key'), // Путь к вашему приватному ключу
+  cert: fs.readFileSync('./SSL/certificate.crt'), // Путь к вашему сертификату
+};
+
+// Создание HTTPS сервера
+https.createServer(options, app).listen(443, () => {
+  console.log('Сервер запущен на https://localhost:443');
+});
+
+// Перенаправление HTTP на HTTPS
+http.createServer((req, res) => {
+  res.writeHead(301, { "Location": `https://${req.headers.host}${req.url}` });
+  res.end();
+}).listen(80, () => {
+  console.log('HTTP сервер запущен на порту 80 и перенаправляет на HTTPS');
+});
 
 // Middleware
 app.use(express.json());
