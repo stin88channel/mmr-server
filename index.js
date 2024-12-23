@@ -1,3 +1,4 @@
+const http = require('http');
 const express = require("express");
 const dotenv = require("dotenv").config();
 const cors = require("cors");
@@ -1743,4 +1744,7 @@ app.post("/account/verify-2fa", verifyToken, async (req, res) => {
 
 // Запуск сервера
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
+
+http.createServer(app).listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT} с HTTP`);
+});
