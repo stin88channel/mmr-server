@@ -18,7 +18,7 @@ const usdtService = new UsdtService(process.env.USDT_PRIVATE_KEY);
 router.use(
   cors({
     credentials: true,
-    origin: "https://mmrtestclient.ru",
+    origin: "http://194.87.187.183:5174",
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
