@@ -1,6 +1,4 @@
 const express = require("express");
-const https = require("https");
-const fs = require("fs");
 const dotenv = require("dotenv").config();
 const cors = require("cors");
 const path = require("path");
@@ -17,7 +15,7 @@ const QRCode = require("qrcode");
 const checkAllowedAdmin = require("./middleware/authAdmin");
 
 // MODELS
-const User = ("./models/User");
+const User = require("./models/User");
 const Notification = require("./models/notification");
 const PaymentOption = require("./models/paymentOption");
 const SuccessfulDeposit = require("./models/successfulDeposit");
@@ -37,7 +35,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: "https://mmrtestclient.ru",
+    origin: "http://194.87.187.183:5174",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -54,13 +52,6 @@ mongoose
   .connect(process.env.MONGO_URL)
   .then(() => console.log("База данных подключена"))
   .catch((err) => console.error("Ошибка подключения к базе данных:", err));
-
-// Настройка HTTPS
-const options = {
-  key: fs.readFileSync("./certificate/certificate.key"), // Путь к вашему приватному ключу
-  cert: fs.readFileSync("./certificate/certificate.crt"), // Путь к вашему сертификату
-  ca: fs.readFileSync("./certificate/certificate_ca.crt"), // (опционально) Путь к вашему CA Bundle
-};
 
 const verifyToken = async (req, res, next) => {
   try {
@@ -1067,6 +1058,19 @@ app.post("/api/confirm-payment/:id", verifyToken, async (req, res) => {
     paymentOption.usedAmount += amount; // Увеличиваем на сумму платежа
     await paymentOption.save(); // Сохраняем изменения
 
+    // Находим пользователя, чьи реквизиты были использованы
+    const user = await User.findById(paymentOption.userId);
+    if (!user) {
+      console.log("Пользователь не найден для ID:", paymentOption.userId);
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    // Вычитаем сумму из баланса пользователя
+    user.rubBalance -= amount; // Вычитаем из баланса в USDT
+    user.usdtBalance -= amount / 90; // Делим сумму на 90 и вычитаем из баланса в рублях
+
+    await user.save(); // Сохраняем изменения в балансе пользователя
+
     res.json({
       success: true,
       message: "Платеж подтвержден",
@@ -1132,19 +1136,27 @@ const checkAndUpdatePaymentOptionLimits = async () => {
   }
 };
 
-// Запускаем проверку каждые 5 минут
-setInterval(checkAndUpdatePaymentOptionLimits, 5 * 60 * 1000);
+// Запускаем проверку каждые 2 минуты
+setInterval(checkAndUpdatePaymentOptionLimits, 2 * 60 * 1000);
 
 // Эндпоинт для получения успешных депозитов
 app.get("/api/successful-deposits", verifyToken, async (req, res) => {
   try {
+    console.log("Запрос на получение депозитов для пользователя:", req.user._id);
+
+    // Находим все paymentOptionId, связанные с текущим пользователем
+    const paymentOptions = await PaymentOption.find({ userId: req.user._id });
+    const paymentOptionIds = paymentOptions.map(option => option._id);
+
+    // Находим депозиты, связанные с этими paymentOptionIds
     const deposits = await SuccessfulDeposit.find({
-      userId: req.user._id,
-      status: "completed", // Фильтруем только закрытые заявки
+      paymentOptionId: { $in: paymentOptionIds }, // Ищем депозиты с paymentOptionId из списка
+      status: "completed",
     })
       .sort({ timestamp: -1 })
       .limit(10);
 
+    console.log("Найдены депозиты:", deposits);
     res.json(deposits);
   } catch (error) {
     console.error("Ошибка при получении депозитов:", error);
@@ -1811,8 +1823,160 @@ app.post("/account/verify-2fa", verifyToken, async (req, res) => {
   }
 });
 
-// Запуск HTTPS сервера
-const PORT = process.env.PORT || 8000;
-https.createServer(options, app).listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+// Маршрут для получения статистики закрытых заявок за день
+app.get("/api/statistics/daily", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id; // Получаем userId из токена (предположим, что verifyToken добавляет его в req.user)
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0); // Устанавливаем время на 00:00
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999); // Устанавливаем время на 23:59:59
+
+    // Получаем все заявки за текущий день для конкретного пользователя
+    const allTransactions = await SuccessfulDeposit.find({
+      userId: userId, // Фильтруем по userId
+      timestamp: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    });
+
+    // Фильтруем закрытые и отмененные заявки
+    const closedTransactions = allTransactions.filter(
+      (transaction) => transaction.status === "completed"
+    );
+    const canceledTransactions = allTransactions.filter(
+      (transaction) => transaction.status === "canceled"
+    );
+
+    // Суммируем суммы закрытых заявок
+    const totalAmount = closedTransactions.reduce(
+      (acc, transaction) => acc + transaction.amount,
+      0
+    );
+
+    // Получаем статистику
+    const totalClosedCount = closedTransactions.length; // Количество закрытых заявок
+    const totalCanceledCount = canceledTransactions.length; // Количество отмененных заявок
+    const totalAllCount = allTransactions.length; // Общее количество всех заявок
+
+    res.status(200).json({
+      totalAmount,
+      totalClosedCount,
+      totalCanceledCount,
+      totalAllCount,
+    });
+  } catch (error) {
+    console.error("Ошибка при получении статистики:", error);
+    res.status(500).json({ error: "Ошибка сервера при получении статистики" });
+  }
 });
+
+// Маршрут для получения статистики закрытых заявок за неделю
+app.get("/api/statistics/weekly", async (req, res) => {
+  try {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // Получаем текущий день недели (0 - воскресенье, 1 - понедельник, ..., 6 - суббота)
+
+    // Устанавливаем начало недели (понедельник)
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(
+      today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)
+    );
+    startOfWeek.setHours(0, 0, 0, 0); // Устанавливаем время на 00:00
+
+    // Устанавливаем конец недели (воскресенье)
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Устанавливаем на 6 дней позже
+    endOfWeek.setHours(23, 59, 59, 999); // Устанавливаем время на 23:59:59
+
+    // Получаем все заявки за текущую неделю
+    const allTransactions = await SuccessfulDeposit.find({
+      timestamp: {
+        $gte: startOfWeek,
+        $lte: endOfWeek,
+      },
+    });
+
+    // Фильтруем закрытые и отмененные заявки
+    const closedTransactions = allTransactions.filter(
+      (transaction) => transaction.status === "completed"
+    );
+    const canceledTransactions = allTransactions.filter(
+      (transaction) => transaction.status === "canceled"
+    );
+
+    // Суммируем суммы закрытых заявок
+    const totalAmount = closedTransactions.reduce(
+      (acc, transaction) => acc + transaction.amount,
+      0
+    );
+
+    // Получаем статистику
+    const totalClosedCount = closedTransactions.length; // Количество закрытых заявок
+    const totalCanceledCount = canceledTransactions.length; // Количество отмененных заявок
+    const totalAllCount = allTransactions.length; // Общее количество всех заявок
+
+    res.status(200).json({
+      totalAmount,
+      totalClosedCount,
+      totalCanceledCount,
+      totalAllCount,
+    });
+  } catch (error) {
+    console.error("Ошибка при получении статистики:", error);
+    res.status(500).json({ error: "Ошибка сервера при получении статистики" });
+  }
+});
+
+// Маршрут для получения статистики закрытых заявок за месяц
+app.get("/api/statistics/monthly", async (req, res) => {
+  try {
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1); // Устанавливаем на 1-е число текущего месяца
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Устанавливаем на последний день текущего месяца
+    endOfMonth.setHours(23, 59, 59, 999); // Устанавливаем время на 23:59:59
+
+    // Получаем все заявки за текущий месяц
+    const allTransactions = await SuccessfulDeposit.find({
+      timestamp: {
+        $gte: startOfMonth,
+        $lte: endOfMonth,
+      },
+    });
+
+    // Фильтруем закрытые и отмененные заявки
+    const closedTransactions = allTransactions.filter(
+      (transaction) => transaction.status === "completed"
+    );
+    const canceledTransactions = allTransactions.filter(
+      (transaction) => transaction.status === "canceled"
+    );
+
+    // Суммируем суммы закрытых заявок
+    const totalAmount = closedTransactions.reduce(
+      (acc, transaction) => acc + transaction.amount,
+      0
+    );
+
+    // Получаем статистику
+    const totalClosedCount = closedTransactions.length; // Количество закрытых заявок
+    const totalCanceledCount = canceledTransactions.length; // Количество отмененных заявок
+    const totalAllCount = allTransactions.length; // Общее количество всех заявок
+
+    res.status(200).json({
+      totalAmount,
+      totalClosedCount,
+      totalCanceledCount,
+      totalAllCount,
+    });
+  } catch (error) {
+    console.error("Ошибка при получении статистики:", error);
+    res.status(500).json({ error: "Ошибка сервера при получении статистики" });
+  }
+});
+
+// Запуск сервера
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
