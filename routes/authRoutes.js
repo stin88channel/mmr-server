@@ -16,12 +16,7 @@ const usdtService = new UsdtService(process.env.USDT_PRIVATE_KEY);
 
 // Middleware
 router.use(
-  cors({
-    credentials: true,
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  cors()
 );
 
 // Функция для получения информации об устройстве

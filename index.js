@@ -7,7 +7,6 @@ const cookieParser = require("cookie-parser");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const UsdtService = require("./UsdtService");
-const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // 2FA GOOGLE
 const speakeasy = require("speakeasy");
@@ -35,22 +34,12 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(
-  cors({
-    origin: 'http://194.87.187.183:5174',
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  cors()
 );
 app.use("/api", notificationRoutes);
 app.use("/api", paymentRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-app.use('/user/settings', createProxyMiddleware({
-  target: 'http://mmrtest.ru',
-  changeOrigin: true,
-}));
 
 const usdtService = new UsdtService(process.env.USDT_PRIVATE_KEY);
 
