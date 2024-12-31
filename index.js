@@ -1,7 +1,6 @@
 const express = require("express");
 const https = require("https");
 const fs = require("fs");
-const path = require("path");
 const dotenv = require("dotenv").config();
 const cors = require("cors");
 const path = require("path");
