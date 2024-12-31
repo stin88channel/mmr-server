@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const cors = require("cors");
-const User = ("../models/User");
+const User = require("../models/user");
 const UsdtService = require("../UsdtService");
 const {
   test,
