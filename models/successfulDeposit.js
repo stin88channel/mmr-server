@@ -19,6 +19,10 @@ const TransactionsHistorySchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    botRequisites: {
+        type: String,
+        required: true
+    },
     status: {
         type: String,
         enum: ['pending', 'completed', 'canceled', 'active'],
@@ -27,7 +31,7 @@ const TransactionsHistorySchema = new mongoose.Schema({
     timestamp: {
         type: Date,
         default: Date.now
-    }
+    },
 });
 
 // Индексы для оптимизации запросов

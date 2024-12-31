@@ -40,6 +40,14 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  frozenBalanceRub: {
+    type: Number,
+    default: 0,
+  },
+  frozenBalanceUsdt: {
+    type: Number,
+    default: 0,
+  },
   balance: {
     type: Number,
     default: 0,
@@ -147,8 +155,6 @@ const UserSchema = new mongoose.Schema({
   },
   blockReason: String,
   blockedUntil: Date,
-
-  // Новые поля для 2FA
   twoFAEnabled: {
     type: Boolean,
     default: false,
@@ -168,8 +174,8 @@ UserSchema.pre("save", async function (next) {
     const newPasswordHash = await bcrypt.hash(this.password, salt);
 
     // Проверка на количество старых паролей
-    if (this.oldPasswords.length >= 5) {
-      this.oldPasswords.shift(); // Удаляем самый старый пароль, если их больше 5
+    if (this.oldPasswords.length >= 15) {
+      this.oldPasswords.shift(); // Удаляем самый старый пароль, если их больше 15
     }
 
     // Добавляем новый хеш пароля в массив старых паролей
@@ -198,7 +204,11 @@ UserSchema.methods.isOldPassword = async function (newPassword) {
 };
 
 // Метод для обновления баланса
-UserSchema.methods.updateBalance = async function (amount, currency = "RUB", type = "deposit") {
+UserSchema.methods.updateBalance = async function (
+  amount,
+  currency = "RUB",
+  type = "deposit"
+) {
   const oldBalance = this[`${currency.toLowerCase()}Balance`] || 0;
   if (type === "deposit") {
     this[`${currency.toLowerCase()}Balance`] = oldBalance + amount;
@@ -217,7 +227,13 @@ UserSchema.methods.updateBalance = async function (amount, currency = "RUB", typ
 };
 
 // Метод для добавления транзакции
-UserSchema.methods.addTransaction = async function (type, amount, currency, paymentOptionId = null, description = "") {
+UserSchema.methods.addTransaction = async function (
+  type,
+  amount,
+  currency,
+  paymentOptionId = null,
+  description = ""
+) {
   const transaction = {
     type,
     amount,
@@ -233,7 +249,10 @@ UserSchema.methods.addTransaction = async function (type, amount, currency, paym
 };
 
 // Метод для обновления статуса транзакции
-UserSchema.methods.updateTransactionStatus = async function (transactionId, status) {
+UserSchema.methods.updateTransactionStatus = async function (
+  transactionId,
+  status
+) {
   const transaction = this.transactions.id(transactionId);
   if (!transaction) {
     throw new Error("Транзакция не найдена");
@@ -261,7 +280,10 @@ UserSchema.methods.calculateTotalBalance = function () {
 };
 
 // Метод для добавления криптоадреса
-UserSchema.methods.addCryptoAddress = async function (address, currency = "USDT") {
+UserSchema.methods.addCryptoAddress = async function (
+  address,
+  currency = "USDT"
+) {
   const existingAddress = this.cryptoAddresses.find(
     (addr) => addr.address === address && addr.currency === currency
   );
@@ -280,18 +302,24 @@ UserSchema.methods.addCryptoAddress = async function (address, currency = "USDT"
 
 // Метод для получения криптоадресов
 UserSchema.methods.getCryptoAddresses = function (currency) {
-  return currency ? this.cryptoAddresses.filter((addr) => addr.currency === currency) : this.cryptoAddresses;
+  return currency
+    ? this.cryptoAddresses.filter((addr) => addr.currency === currency)
+    : this.cryptoAddresses;
 };
 
 // Метод для получения USDT адреса
 UserSchema.methods.getUsdtAddress = function () {
-  const usdtAddress = this.cryptoAddresses.find((addr) => addr.currency === "USDT");
+  const usdtAddress = this.cryptoAddresses.find(
+    (addr) => addr.currency === "USDT"
+  );
   return usdtAddress ? usdtAddress.address : null;
 };
 
 // Метод для обновления USDT адреса
 UserSchema.methods.updateUsdtAddress = async function (newAddress) {
-  const existingAddress = this.cryptoAddresses.find((addr) => addr.currency === "USDT");
+  const existingAddress = this.cryptoAddresses.find(
+    (addr) => addr.currency === "USDT"
+  );
   if (existingAddress) {
     existingAddress.address = newAddress;
   } else {
@@ -307,10 +335,11 @@ UserSchema.methods.updateUsdtAddress = async function (newAddress) {
 
 // Метод для проверки устройства
 UserSchema.methods.isDeviceAllowed = function (deviceInfo) {
-  return !this.lastLoginDevice || (
-    this.lastLoginDevice.deviceType === deviceInfo.deviceType &&
-    this.lastLoginDevice.os === deviceInfo.os &&
-    this.lastLoginDevice.browser === deviceInfo.browser
+  return (
+    !this.lastLoginDevice ||
+    (this.lastLoginDevice.deviceType === deviceInfo.deviceType &&
+      this.lastLoginDevice.os === deviceInfo.os &&
+      this.lastLoginDevice.browser === deviceInfo.browser)
   );
 };
 

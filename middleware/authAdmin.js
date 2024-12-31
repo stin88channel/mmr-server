@@ -1,3 +1,5 @@
+const { allowedAdmins } = require('../models/User');
+
 const checkAllowedAdmin = async (req, res, next) => {
     try {
         if (!req.user || req.user.role !== 'admin') {

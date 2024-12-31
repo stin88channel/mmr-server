@@ -1,7 +1,7 @@
-const https = require('https');
-const http = require('http');
-const fs = require('fs');
 const express = require("express");
+const https = require("https");
+const fs = require("fs");
+const path = require("path");
 const dotenv = require("dotenv").config();
 const cors = require("cors");
 const path = require("path");
@@ -18,7 +18,7 @@ const QRCode = require("qrcode");
 const checkAllowedAdmin = require("./middleware/authAdmin");
 
 // MODELS
-const User = ("./models/User");
+const User = require("./models/User");
 const Notification = require("./models/notification");
 const PaymentOption = require("./models/paymentOption");
 const SuccessfulDeposit = require("./models/successfulDeposit");
@@ -32,39 +32,20 @@ const { v4: uuidv4 } = require("uuid");
 
 const app = express();
 
-// Загрузка сертификата и ключа
-const options = {
-  key: fs.readFileSync('./SSL/private.key'),
-  cert: fs.readFileSync('./SSL/certificate.crt'),
-};
-
-// Создание HTTPS сервера
-https.createServer(options, app).listen(443, () => {
-  console.log('Сервер запущен на https://localhost:443');
-});
-
-// Перенаправление HTTP на HTTPS
-http.createServer((req, res) => {
-  res.writeHead(301, { "Location": `https://${req.headers.host}${req.url}` });
-  res.end();
-}).listen(80, () => {
-  console.log('HTTP сервер запущен на порту 80 и перенаправляет на HTTPS');
-});
-
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: "https://mmr-client.vercel.app",
+    origin: "https://mmrtestclient.ru",
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use("/api/v1", notificationRoutes);
-app.use("/api/v1", paymentRoutes);
+app.use("/api", notificationRoutes);
+app.use("/api", paymentRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -74,6 +55,13 @@ mongoose
   .connect(process.env.MONGO_URL)
   .then(() => console.log("База данных подключена"))
   .catch((err) => console.error("Ошибка подключения к базе данных:", err));
+
+// Настройка HTTPS
+const options = {
+  key: fs.readFileSync("./certificate/certificate.key"), // Путь к вашему приватному ключу
+  cert: fs.readFileSync("./certificate/certificate.crt"), // Путь к вашему сертификату
+  ca: fs.readFileSync("./certificate/certificate_ca.crt"), // (опционально) Путь к вашему CA Bundle
+};
 
 const verifyToken = async (req, res, next) => {
   try {
@@ -119,7 +107,7 @@ const verifyToken = async (req, res, next) => {
 };
 
 // Проверка
-app.get("/api/v1/check-admin", verifyToken, async (req, res) => {
+app.get("/api/check-admin", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ isAdmin: false });
@@ -133,7 +121,7 @@ app.get("/api/v1/check-admin", verifyToken, async (req, res) => {
 
 // Отправка уведомления (только для админов)
 app.post(
-  "/api/v1/notifications",
+  "/api/notifications",
   verifyToken,
   checkAllowedAdmin,
   async (req, res) => {
@@ -174,7 +162,7 @@ app.post(
 );
 
 // Получение всех уведомлений
-app.get("/api/v1/notifications", verifyToken, async (req, res) => {
+app.get("/api/notifications", verifyToken, async (req, res) => {
   try {
     const notifications = await Notification.find()
       .sort({ createdAt: -1 })
@@ -186,7 +174,7 @@ app.get("/api/v1/notifications", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/v1/notifications/reset-counter", verifyToken, async (req, res) => {
+app.post("/api/notifications/reset-counter", verifyToken, async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user._id, { unreadNotifications: 0 });
     res.json({ message: "Счетчик уведомлений сброшен" });
@@ -474,28 +462,29 @@ app.post("/user/toggle-wallet", verifyToken, async (req, res) => {
   }
 });
 
-// Получение всех платежных опций
-app.get("/api/v1/payment-options", verifyToken, async (req, res) => {
+// Обработчик для получения платежных опций для вывода
+app.get("/api/payment-options/withdraw", async (req, res) => {
   try {
-    console.log("Запрос на получение всех активных платежных опций");
-
-    // Получаем все активные платежные опции
+    console.log("Запрос на получение платежных опций для вывода");
     const paymentOptions = await PaymentOption.find({ isActive: true });
-
     console.log("Платежные опции найдены:", paymentOptions);
-
-    // Проверяем, есть ли найденные опции
-    if (!paymentOptions || paymentOptions.length === 0) {
-      console.log("Нет доступных платежных опций");
-      return res.status(404).json({ error: "Нет доступных платежных опций" });
-    }
-
     res.json(paymentOptions);
   } catch (error) {
-    console.error("Ошибка при получении платежных опций:", error);
-    res
-      .status(500)
-      .json({ error: "Ошибка сервера при получении платежных опций" });
+    console.error("Ошибка при получении реквизитов:", error);
+    res.status(500).json({ error: "Ошибка сервера при получении реквизитов" });
+  }
+});
+
+// Обработчик для получения платежных опций для авторизованных пользователей
+app.get("/api/payment-options", verifyToken, async (req, res) => {
+  try {
+    console.log("Запрос на получение платежных опций для пользователя");
+    const paymentOptions = await PaymentOption.find({ userId: req.user._id });
+    console.log("Платежные опции найдены:", paymentOptions);
+    res.json(paymentOptions);
+  } catch (error) {
+    console.error("Ошибка при получении реквизитов:", error);
+    res.status(500).json({ error: "Ошибка сервера при получении реквизитов" });
   }
 });
 
@@ -532,7 +521,7 @@ const checkAvailableLimit = async (
   };
 };
 
-app.post("/api/v1/payment-options", verifyToken, async (req, res) => {
+app.post("/api/payment-options", verifyToken, async (req, res) => {
   try {
     const {
       name,
@@ -609,7 +598,7 @@ app.post("/api/v1/payment-options", verifyToken, async (req, res) => {
   }
 });
 
-app.put("/api/v1/successful-deposits/:id", verifyToken, async (req, res) => {
+app.put("/api/successful-deposits/:id", verifyToken, async (req, res) => {
   try {
     const deposit = await SuccessfulDeposit.findById(req.params.id);
     if (!deposit) {
@@ -673,7 +662,7 @@ async function generateUniqueCustomUrl(customUrl) {
 }
 
 // Обновление платежной опции
-app.put("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
+app.put("/api/payment-options/:id", verifyToken, async (req, res) => {
   try {
     const { limit, name, bank, timeout, maxRequests, botRequisites, comment } =
       req.body;
@@ -729,7 +718,7 @@ app.put("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
 });
 
 // Удаление платежной опции
-app.delete("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
+app.delete("/api/payment-options/:id", verifyToken, async (req, res) => {
   try {
     const result = await PaymentOption.findOneAndDelete({
       _id: req.params.id,
@@ -749,7 +738,7 @@ app.delete("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/v1/payment-options/:customUrl", async (req, res) => {
+app.get("/api/payment-options/:customUrl", async (req, res) => {
   try {
     const { customUrl } = req.params; // Извлекаем customUrl из параметров
     console.log("Запрос платежной опции:", customUrl);
@@ -788,7 +777,7 @@ app.get("/api/v1/payment-options/:customUrl", async (req, res) => {
 });
 
 // Изменение платежной опции
-app.put("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
+app.put("/api/payment-options/:id", verifyToken, async (req, res) => {
   try {
     const { name, bank, limit, timeout, maxRequests, botRequisites, comment } =
       req.body;
@@ -862,7 +851,7 @@ app.put("/api/v1/payment-options/:id", verifyToken, async (req, res) => {
 });
 
 // Переключение статуса платежной опции
-app.put("/api/v1/payment-options/:id/toggle", verifyToken, async (req, res) => {
+app.put("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
   try {
     // Проверяем валидность ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -950,7 +939,7 @@ app.put("/api/v1/payment-options/:id/toggle", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/v1/create-payment-option", verifyToken, async (req, res) => {
+app.post("/api/create-payment-option", verifyToken, async (req, res) => {
   try {
     const { amount, customUrl } = req.body; // Извлекаем amount и customUrl из тела запроса
 
@@ -1001,6 +990,7 @@ app.post("/api/v1/create-payment-option", verifyToken, async (req, res) => {
       userId: req.user._id,
       amount,
       customUrl,
+      botRequisites: randomOption.botRequisites,
       paymentOptionId: randomOption._id, // Ссылка на платежную опцию
       bank: randomOption.bank, // Добавлено поле bank
       // Добавьте другие необходимые поля для записи о выплате
@@ -1043,63 +1033,81 @@ app.post("/api/v1/create-payment-option", verifyToken, async (req, res) => {
 });
 
 // Обработчик подтверждения платежа
-app.post("/api/v1/confirm-payment/:id", verifyToken, async (req, res) => {
+app.post("/api/confirm-payment/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { amount } = req.body;
+
+  console.log("ID платежной опции:", id);
+  console.log("Сумма:", amount);
+
   try {
-    const { id } = req.params;
-    const { amount } = req.body;
-
-    console.log("Начало обработки платежа:", {
-      paymentId: id,
-      amount: amount,
-      userId: req.user._id,
+    // Находим активный депозит без привязки к userId
+    const existingDeposit = await SuccessfulDeposit.findOne({
+      paymentOptionId: id,
+      status: "active", // Ищем только активные депозиты
     });
 
-    // Валидация ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        error: "Некорректный ID платежной опции",
-      });
+    if (!existingDeposit) {
+      console.log("Активный депозит не найден для paymentOptionId:", id);
+      return res.status(404).json({ error: "Активный депозит не найден" });
     }
 
-    // Валидация суммы платежа
-    const paymentAmount = parseFloat(amount);
-    if (!paymentAmount || isNaN(paymentAmount) || paymentAmount <= 0) {
-      return res.status(400).json({
-        error: "Некорректная сумма платежа",
-        details: "Сумма должна быть положительным числом",
-      });
+    // Обновляем статус существующего депозита
+    existingDeposit.status = "completed"; // Обновляем статус
+    existingDeposit.amount = amount; // Обновляем сумму, если это необходимо
+    await existingDeposit.save(); // Сохраняем изменения
+
+    // Логика обновления платежной опции
+    const paymentOption = await PaymentOption.findById(id);
+    if (!paymentOption) {
+      console.log("Платежная опция не найдена для ID:", id);
+      return res.status(404).json({ error: "Платежная опция не найдена" });
     }
 
-    // Находим активную запись о депозите
-    const deposit = await SuccessfulDeposit.findOne({
-      userId: req.user._id,
-      status: "active",
-      paymentOptionId: id, // Убедитесь, что это ID платежной опции
-    });
+    // Обновляем использованную сумму
+    paymentOption.usedAmount += amount; // Увеличиваем на сумму платежа
+    await paymentOption.save(); // Сохраняем изменения
 
-    if (!deposit) {
-      return res.status(404).json({
-        error: "Активная запись о депозите не найдена",
-      });
-    }
-
-    // Обновляем статус записи на completed
-    deposit.status = "completed";
-    await deposit.save();
-
-    // Возвращаем успешный ответ
     res.json({
       success: true,
       message: "Платеж подтвержден",
-      depositId: deposit._id,
-      updatedStatus: deposit.status,
+      depositId: existingDeposit._id,
+      updatedDeposit: existingDeposit,
     });
   } catch (error) {
     console.error("Ошибка при подтверждении платежа:", error);
-    res.status(500).json({
-      error: "Ошибка при обработке платежа",
-      details: error.message,
+    res.status(500).json({ error: "Ошибка при подтверждении платежа" });
+  }
+});
+
+app.post("/api/pending-payment/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Находим активный депозит без привязки к userId
+    const existingDeposit = await SuccessfulDeposit.findOne({
+      paymentOptionId: id,
+      status: "active", // Ищем только активные депозиты
     });
+
+    if (!existingDeposit) {
+      console.log("Активный депозит не найден для paymentOptionId:", id);
+      return res.status(404).json({ error: "Активный депозит не найден" });
+    }
+
+    // Обновляем статус существующего депозита на "pending"
+    existingDeposit.status = "pending"; // Обновляем статус
+    await existingDeposit.save(); // Сохраняем изменения
+
+    res.json({
+      success: true,
+      message: "Статус платежа обновлен на 'pending'",
+      depositId: existingDeposit._id,
+      updatedDeposit: existingDeposit,
+    });
+  } catch (error) {
+    console.error("Ошибка при обновлении статуса платежа:", error);
+    res.status(500).json({ error: "Ошибка при обновлении статуса платежа" });
   }
 });
 
@@ -1129,9 +1137,12 @@ const checkAndUpdatePaymentOptionLimits = async () => {
 setInterval(checkAndUpdatePaymentOptionLimits, 5 * 60 * 1000);
 
 // Эндпоинт для получения успешных депозитов
-app.get("/api/v1/successful-deposits", verifyToken, async (req, res) => {
+app.get("/api/successful-deposits", verifyToken, async (req, res) => {
   try {
-    const deposits = await SuccessfulDeposit.find({ userId: req.user._id })
+    const deposits = await SuccessfulDeposit.find({
+      userId: req.user._id,
+      status: "completed", // Фильтруем только закрытые заявки
+    })
       .sort({ timestamp: -1 })
       .limit(10);
 
@@ -1159,7 +1170,7 @@ async function getRandomPaymentOption(amount) {
   return availableOptions[Math.floor(Math.random() * availableOptions.length)];
 }
 
-app.post("/api/v1/payment-options/:id/toggle", verifyToken, async (req, res) => {
+app.post("/api/payment-options/:id/toggle", verifyToken, async (req, res) => {
   try {
     const option = await PaymentOption.findOne({
       _id: req.params.id,
@@ -1186,7 +1197,7 @@ app.post("/api/v1/payment-options/:id/toggle", verifyToken, async (req, res) => 
 });
 
 // Получение USDT адреса
-app.post("/api/v1/crypto/get-usdt-address", verifyToken, async (req, res) => {
+app.post("/api/crypto/get-usdt-address", verifyToken, async (req, res) => {
   try {
     // Сначала ищем существующий адрес пользователя
     const user = await User.findById(req.user._id);
@@ -1215,7 +1226,7 @@ app.post("/api/v1/crypto/get-usdt-address", verifyToken, async (req, res) => {
 });
 
 // Обновление баланса пользователя
-app.post("/api/v1/update-balance", verifyToken, async (req, res) => {
+app.post("/api/update-balance", verifyToken, async (req, res) => {
   try {
     const { usdtBalance, rubBalance } = req.body;
     const user = await User.findByIdAndUpdate(
@@ -1231,7 +1242,7 @@ app.post("/api/v1/update-balance", verifyToken, async (req, res) => {
 });
 
 // Получение баланса пользователя
-app.get("/api/v1/get-balance", verifyToken, async (req, res) => {
+app.get("/api/get-balance", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     res.json({
@@ -1244,7 +1255,7 @@ app.get("/api/v1/get-balance", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/v1/user/usdt-address", verifyToken, async (req, res) => {
+app.get("/api/user/usdt-address", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -1277,7 +1288,7 @@ app.get("/api/v1/user/usdt-address", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/v1/payment-options/random", async (req, res) => {
+app.get("/api/payment-options/random", async (req, res) => {
   console.log("Received request for random payment option");
   console.log("Query parameters:", req.query);
 
@@ -1341,24 +1352,28 @@ app.get("/api/v1/payment-options/random", async (req, res) => {
   }
 });
 
-app.get("/api/v1/applications", verifyToken, async (req, res) => {
+app.get("/api/applications", verifyToken, async (req, res) => {
   console.log("Запрос на получение заявок:", req.query);
   try {
     const { type } = req.query;
 
+    // Получаем платежные опции текущего пользователя
+    const paymentOptions = await PaymentOption.find({ userId: req.user._id });
+    const paymentOptionIds = paymentOptions.map((option) => option._id); // Получаем массив ID платежных опций
+
     // Базовые фильтры для запроса
-    let query = { userId: req.user._id }; // Фильтруем по userId
+    let query = { paymentOptionId: { $in: paymentOptionIds } }; // Фильтруем по ID платежных опций
 
     // Фильтрация в зависимости от типа
     switch (type) {
       case "all":
         // Получаем все заявки без фильтрации по статусу
-        break;
+        break; // Здесь ничего не меняем, так как уже фильтруем по paymentOptionId
       case "active":
         query.status = "active"; // Фильтруем по статусу "active"
         break;
       case "processing":
-        query.status = "processing"; // Фильтруем по статусу "processing"
+        query.status = "pending"; // Фильтруем по статусу "pending"
         break;
       case "closed":
         query.status = "completed"; // Фильтруем по статусу "completed"
@@ -1374,18 +1389,26 @@ app.get("/api/v1/applications", verifyToken, async (req, res) => {
 
     // Получаем заявки с пагинацией и сортировкой
     const applications = await SuccessfulDeposit.find(query) // Используем правильную модель
-      .sort({ createdAt: -1 }) // Сортировка по дате создания (новые первые)
+      .sort({ createdAt: -1 }); // Сортировка по дате создания (новые первые)
 
     console.log("Найденные заявки:", applications); // Логируем найденные заявки
 
-    // Преобразуем заявки в более удобный формат для фронтенда
     const formattedApplications = applications.map((app) => ({
       id: app._id,
-      sum: app.amount, // Сумма заявки
-      status: app.status, // Прямое использование статуса
-      course: calculateCourse(app.amount), // Расчет курса
+      sum: app.amount,
+      status:
+        app.status === "pending"
+          ? "На проверке"
+          : app.status === "canceled"
+          ? "Отменено"
+          : app.status === "completed"
+          ? "Закрыто"
+          : app.status,
+      course: calculateCourse(app.amount),
       bank: app.bank,
+      botRequisites: app.botRequisites,
       createdAt: app.createdAt,
+      timestamp: app.timestamp,
     }));
 
     res.json(formattedApplications);
@@ -1396,6 +1419,34 @@ app.get("/api/v1/applications", verifyToken, async (req, res) => {
       details:
         process.env.NODE_ENV === "development" ? error.message : undefined,
     });
+  }
+});
+
+app.patch("/api/applications/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    // Получаем платежные опции текущего пользователя
+    const paymentOptions = await PaymentOption.find({ userId: req.user._id });
+    const paymentOptionIds = paymentOptions.map((option) => option._id); // Получаем массив ID платежных опций
+
+    // Проверяем, существует ли заявка и принадлежит ли она пользователю
+    const application = await SuccessfulDeposit.findOneAndUpdate(
+      { _id: id, paymentOptionId: { $in: paymentOptionIds } }, // Фильтруем по ID платежных опций
+      { status },
+      { new: true }
+    );
+
+    if (!application) {
+      return res
+        .status(404)
+        .json({ error: "Заявка не найдена или не принадлежит вам" });
+    }
+    res.json(application);
+  } catch (error) {
+    console.error("Ошибка при обновлении заявки:", error);
+    res.status(500).json({ error: "Ошибка сервера" });
   }
 });
 
@@ -1419,7 +1470,7 @@ function calculateCourse(amount) {
 }
 
 // Дополнительный эндпоинт для получения количества заявок по статусам
-app.get("/api/v1/applications/count", verifyToken, async (req, res) => {
+app.get("/api/applications/count", verifyToken, async (req, res) => {
   try {
     const counts = await PaymentOption.aggregate([
       {
@@ -1456,7 +1507,7 @@ function verify2FAToken(secret, token) {
 }
 
 // Эндпоинт для изменения пароля
-app.put("/api/v1/user/change-password", verifyToken, async (req, res) => {
+app.put("/api/user/change-password", verifyToken, async (req, res) => {
   const { currentPassword, newPassword, token } = req.body;
 
   try {
@@ -1489,11 +1540,9 @@ app.put("/api/v1/user/change-password", verifyToken, async (req, res) => {
     // Проверка на совпадение с предыдущими паролями
     const isOldPassword = await user.isOldPassword(newPassword);
     if (isOldPassword) {
-      return res
-        .status(400)
-        .json({
-          error: "Новый пароль не может совпадать с одним из старых паролей",
-        });
+      return res.status(400).json({
+        error: "Новый пароль не может совпадать с одним из старых паролей",
+      });
     }
 
     // Проверка кода 2FA, если он включен
@@ -1518,7 +1567,7 @@ app.put("/api/v1/user/change-password", verifyToken, async (req, res) => {
 });
 
 // Эндпоинт для генерации секрета 2FA
-app.get("/api/v1/generate-2fa", verifyToken, async (req, res) => {
+app.get("/api/generate-2fa", verifyToken, async (req, res) => {
   const twoFASecret = speakeasy.generateSecret({ length: 20 });
 
   // Генерация QR-кода
@@ -1528,7 +1577,7 @@ app.get("/api/v1/generate-2fa", verifyToken, async (req, res) => {
   res.json({ qrCodeUrl, secret: twoFASecret.base32 }); // Возвращаем секрет и QR-код
 });
 
-app.post("/api/v1/verify-2fa", verifyToken, async (req, res) => {
+app.post("/api/verify-2fa", verifyToken, async (req, res) => {
   const { token } = req.body; // Получаем токен из запроса
 
   try {
@@ -1597,7 +1646,7 @@ app.post("/api/v1/verify-2fa", verifyToken, async (req, res) => {
 });
 
 // Эндпоинт для активации 2FA
-app.post("/api/v1/enable-2fa", verifyToken, async (req, res) => {
+app.post("/api/enable-2fa", verifyToken, async (req, res) => {
   const { token, secret } = req.body; // Получаем токен и секрет из запроса
 
   try {
@@ -1634,7 +1683,7 @@ app.post("/api/v1/enable-2fa", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/api/v1/disable-2fa", verifyToken, async (req, res) => {
+app.post("/api/disable-2fa", verifyToken, async (req, res) => {
   const { token } = req.body; // Получаем токен из запроса
 
   try {
@@ -1684,7 +1733,7 @@ app.post("/api/v1/disable-2fa", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/api/v1/user/twofa-status", verifyToken, async (req, res) => {
+app.get("/api/user/twofa-status", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -1699,7 +1748,7 @@ app.get("/api/v1/user/twofa-status", verifyToken, async (req, res) => {
 });
 
 // Пример эндпоинта для получения данных пользователя
-app.get("/api/v1/user/settings", verifyToken, async (req, res) => {
+app.get("/api/user/settings", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password"); // Не возвращаем пароль
     if (!user) {
@@ -1763,6 +1812,8 @@ app.post("/account/verify-2fa", verifyToken, async (req, res) => {
   }
 });
 
-// Запуск сервера
+// Запуск HTTPS сервера
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
+https.createServer(options, app).listen(PORT, () => {
+    console.log(`Сервер запущен на порту ${PORT}`);
+});

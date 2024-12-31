@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const cors = require("cors");
+const User = require("../models/User");
 const UsdtService = require("../UsdtService");
 const {
   test,
@@ -17,8 +18,8 @@ const usdtService = new UsdtService(process.env.USDT_PRIVATE_KEY);
 router.use(
   cors({
     credentials: true,
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: "https://mmrtestclient.ru",
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
@@ -163,7 +164,7 @@ const registerUser = async (req, res) => {
 };
 
 // Эндпоинт для изменения пароля
-router.put("/api/v1/user/change-password", verifyToken, async (req, res) => {
+router.put("/api/user/change-password", verifyToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   try {
