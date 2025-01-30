@@ -15,7 +15,7 @@ const QRCode = require("qrcode");
 const checkAllowedAdmin = require("./middleware/authAdmin");
 
 // MODELS
-const User = require("./models/User");
+const User = ("./models/User");
 const Notification = require("./models/notification");
 const PaymentOption = require("./models/paymentOption");
 const SuccessfulDeposit = require("./models/successfulDeposit");
@@ -35,7 +35,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: "https://mmr-pay.trade",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],

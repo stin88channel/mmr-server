@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const cors = require("cors");
-const User = require("../models/User");
+const User = ("../models/User");
 const UsdtService = require("../UsdtService");
 const {
   test,
@@ -18,7 +18,7 @@ const usdtService = new UsdtService(process.env.USDT_PRIVATE_KEY);
 router.use(
   cors({
     credentials: true,
-    origin: "http://localhost:5173",
+    origin: "https://mmr-pay.trade",
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
