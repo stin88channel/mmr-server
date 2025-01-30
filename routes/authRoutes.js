@@ -18,7 +18,7 @@ const usdtService = new UsdtService(process.env.USDT_PRIVATE_KEY);
 router.use(
   cors({
     credentials: true,
-    origin: "http://localhost:5173",
+    origin: "https://mmr-pay.trade",
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
