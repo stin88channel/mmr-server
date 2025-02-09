@@ -1,5 +1,4 @@
-const User = require("../models/User");
-const { comparePassword } = require("../helpers/auth");
+const User = ("../models/User");
 const jwt = require("jsonwebtoken");
 
 const test = (req, res) => {
