@@ -145,13 +145,16 @@ const loginUser = async (req, res) => {
         role: user.role,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "168h" }
     );
 
     // Обновление статуса auth и времени последнего входа
     user.auth = 1;
     user.lastLoginAt = new Date();
     await user.save();
+
+    // Set the token in a cookie
+    res.cookie("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "Strict" });
 
     // Отправка ответа
     res.json({
